@@ -11,6 +11,7 @@ from time import sleep
 import time
 import datetime
 import numpy as np
+import v4l2capture
 
 # dropbox related (todo: move into separate class)
 import os
@@ -20,7 +21,7 @@ from io import BytesIO
 
 import numpy as np
 
-class CoreCamera(CameraBase):
+class CoreCamera2131(CameraBase):
     """Implementation of ImagingSource Camera
     """
 
@@ -49,15 +50,15 @@ class CoreCamera(CameraBase):
         if self._mode is None:
             self._mode = self._get_mode_from_fourcc(self._fourcc)
 
-        super(CoreCamera, self).__init__(**kwargs)
+        super(CoreCamera2131, self).__init__(**kwargs)
 
     def _get_mode_from_fourcc(self, fourcc):
             return "I;16" if fourcc == "Y16 " else "L"
 
     def init_camera(self):
         self._device = '/dev/video%d' % self._index
-        # if not self.stopped:
-        #     self.start()
+        if not self.stopped:
+             self.start()
 
     def is_uploading(self):
         return self._uploading
@@ -170,7 +171,7 @@ class CoreCamera(CameraBase):
             Clock.schedule_once(self.stop)
 
     def _v4l_init_video(self):
-        import v4l2capture
+
         device = self._device
         (res_x, res_y) = self.resolution
         fourcc = self._fourcc
@@ -285,6 +286,11 @@ class CoreCamera(CameraBase):
         self._tick_samples = np.zeros(self.TICK_SAMPLES)
         self._lasttime = time.time()
         self._fps = 0
+        self._temp = 0
+
+    def _read_temp(self):
+        temp = os.popen("vcgencmd measure_temp").readline()
+        return (temp.replace("temp=", ""))
 
     def _fps_tick(self):
         newtime = time.time()
@@ -294,17 +300,18 @@ class CoreCamera(CameraBase):
         self._tick_samples[self._tickindex] = newtick
         self._tickindex = (self._tickindex + 1) % self.TICK_SAMPLES
         self._fps = self.TICK_SAMPLES / self._ticksum
+        self._temp = self._read_temp()
         self._lasttime = newtime
 
     def start(self):
         Logger.info("d3 camera start() called")
-        super(CoreCamera, self).start()
+        super(CoreCamera2131, self).start()
         t = Thread(name='video_thread',
                    target=self._v4l_loop)
         t.start()
 
     def stop(self, dt=None):
-        super(CoreCamera, self).stop()
+        super(CoreCamera2131, self).stop()
 
     def get_current_frame(self):
         return self._user_buffer
@@ -317,6 +324,9 @@ class CoreCamera(CameraBase):
 
     def get_fps(self):
         return self._fps
+
+    def get_temp(self):
+        return self._temp
 
     def set_exposure(self, val):
         self._requested_exposure = val

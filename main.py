@@ -1,7 +1,7 @@
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.lang import Builder
-from camera import Camera
+from camera import Camera2131
 from camera import Histogram
 from camera import ImageButton
 from kivy.logger import Logger
@@ -22,6 +22,7 @@ from kivy.uix.dropdown import DropDown
 from time import sleep
 from threading import Thread
 import matplotlib
+import RPi.GPIO as GPIO
 
 from kivy.app import App
 from kivy.uix.carousel import Carousel
@@ -51,7 +52,7 @@ class TestCamera(App):
         self._camera.play = not self._camera.play
 
     def _led_toggle(self, val):
-        import RPi.GPIO as GPIO
+
         if self._led_state == GPIO.LOW:
             self._led_state = GPIO.HIGH
             self._toggle.text = "LED ON"
@@ -65,7 +66,7 @@ class TestCamera(App):
     def _show_demo_results(self, val):
         popup = Popup(title='Reconstruction Results',
                       content=Label(text=
-                        'TOTAL TARGET CELLS                          : 52\n'+
+                        'TOTAL TARGET BEADS                          : 52\n'+
                         'TOTAL FOUND  CELLS                           : 77\n'+
                         'TOTAL FILTERED CELLS                        : 0\n'+
                         'TOTAL BEADS FOR TARGET CELLS      : 235\n'+
@@ -99,9 +100,9 @@ class TestCamera(App):
         detecting = not self._camera.get_object_detection()
         self._camera.set_object_detection(detecting)
         if not detecting:
-            self._object_detection.source = '/home/pi/d3-ui/img/object_detection_off.png'
+            self._object_detection.source = '/home/pi/2.131-UI/img/object_detection_off.png'
         else:
-            self._object_detection.source = '/home/pi/d3-ui/img/object_detection_on.png'
+            self._object_detection.source = '/home/pi/2.131-UI/img/object_detection_on.png'
 
     def _change_exposure(self, instance, val):
         self._camera.set_exposure(int(val))
@@ -114,7 +115,7 @@ class TestCamera(App):
     def _auto_change_exposure(self, val):
         # go in steps
         self._auto_centroiding = True
-        self._auto_centroid.source = '/home/pi/d3-ui/img/distribution_centroid_on.png'
+        self._auto_centroid.source = '/home/pi/2.131-UI/img/distribution_centroid_on.png'
         t = Thread(name='centroid_thread',
                    target=self._do_auto_change_exposure)
         t.start()
@@ -122,7 +123,7 @@ class TestCamera(App):
     def _auto_change_exposure_done(self, l):
         # go in steps
         self._auto_centroiding = True
-        self._auto_centroid.source = '/home/pi/d3-ui/img/distribution_centroid_off.png'
+        self._auto_centroid.source = '/home/pi/2.131-UI/img/distribution_centroid_off.png'
 
     # basic pid loop....
     def _do_auto_change_exposure(self):
@@ -185,6 +186,7 @@ class TestCamera(App):
 
     def _update_fps(self, l):
         self._fps.text = "FPS: %d" % self._camera.get_fps()
+        self._temp.text = "Temp: %s" % self._camera.get_temp()
         self._exposure.text = "Exposure: %d" % self._camera.get_exposure()
         self._centroid.text = "C: %d" % self._histogram.centroid
 
@@ -227,9 +229,7 @@ class TestCamera(App):
                 os.makedirs(local_recon)
 
             dbx = dropbox.Dropbox("Yk7MLEza3NAAAAAAAAAMlZI0xjzFI9OlotOktCew-kFguM43peqX13lAODfvWJ6p")
-            # dbx = dropbox.Dropbox("Yk7MLEza3NAAAAAAAAAAp3MyYSImy0N0-3IMflqMPenGwEWJPqxAWeOAFzKu6y9A")
-            # remote_path = '/input_test/D3RaspberryPi/%s' % os.path.basename(file)
-            remote_recon = '/input/D3RaspberryPi/recon/'
+            remote_recon = '/2.131-Upload/'
 
             mode = dropbox.files.WriteMode.overwrite
             #mtime = os.path.getmtime(file)
@@ -285,7 +285,7 @@ class TestCamera(App):
 
 
     def build(self):
-        #self.init_GPIO()
+        self.init_GPIO()
 
         #layout = BoxLayout(orientation='vertical')
         layout = FloatLayout(size=(800, 480), pos=(0,0))
@@ -299,17 +299,17 @@ class TestCamera(App):
         self._snapref = Button(text='Reference',
            size_hint=(0.2,0.2), pos_hint={'pos':(0.8,0.4)})
 
-        self._demo = Button(text='Demo Results',
-           size_hint=(0.2,0.1), pos_hint={'pos': (0.0, 0.7)})
+        # self._demo = Button(text='Demo Results',
+        #    size_hint=(0.2,0.1), pos_hint={'pos': (0.0, 0.7)})
 
         self._auto_centroid = ImageButton(size_hint=(0.1,0.1), pos_hint={'pos':(0.7,0)},
-            source='/home/pi/d3-ui/img/distribution_centroid_off.png')
+            source='/home/pi/2.131-UI/img/distribution_centroid_off.png')
 
         self._object_detection = ImageButton(size_hint=(0.1,0.1), pos_hint={'pos':(0.7,0.1)},
-            source='/home/pi/d3-ui/img/object_detection_off.png')
+            source='/home/pi/2.131-UI/img/object_detection_off.png')
 
         self._reset_scatter = ImageButton(size_hint=(0.1,0.1), pos_hint={'pos':(0.7,0.2)},
-            source='/home/pi/d3-ui/img/reset_scatter.png')
+            source='/home/pi/2.131-UI/img/reset_scatter.png')
 
 
         self._exit = Button(text='X', size_hint=(0.05,0.05),
@@ -317,6 +317,9 @@ class TestCamera(App):
 
         self._fps = Label(text='FPS: 0', size_hint=(0.1,0.1),
                           pos_hint={'pos':(0.8,0.9)})
+        self._temp = Label(text='Temp: 0', size_hint=(0.1,0.1),
+                          pos_hint={'pos':(0.6,0.9)})
+
         self._uploading = Label(text='Uploading...', size_hint=(0.2,0.1),
                           pos_hint={'pos':(-1,-1)}, color=[0,0,1,0])
         self._uploadingAmt = Label(text='', size_hint=(0.2,0.1),
@@ -335,47 +338,47 @@ class TestCamera(App):
         self._upload_progress = ProgressBar(max=100, size_hint=(0.5,0.1),
                           pos_hint={'pos':(-1,-1)})
 
-        self._camera = Camera(resolution=(640, 480),
-                              fourcc="GREY",
-                              capture_resolution=(3872, 2764),
-                              capture_fourcc="Y16 ",
-                              size_hint=(1,1),
-                              pos_hint={'pos':(0,0)},
-                              play=True, )
+        self._camera = Camera2131(resolution=(640, 480),
+                                  fourcc="GREY",
+                                  capture_resolution=(3872, 2764),
+                                  capture_fourcc="Y16 ",
+                                  size_hint=(1,1),
+                                  pos_hint={'pos':(0,0)},
+                                  play=True, )
 
         self._dropdown = DropDown()
 
         # create a big main button
-        self._imageResultsButton = Button(text='Image Explorer',pos_hint={'pos': (0.0, 0.6)}, size_hint=(0.2, 0.1))
+        # self._imageResultsButton = Button(text='Image Explorer',pos_hint={'pos': (0.0, 0.6)}, size_hint=(0.2, 0.1))
 
         # show the dropdown menu when the main button is released
         # note: all the bind() calls pass the instance of the caller (here, the
         # mainbutton instance) as the first argument of the callback (here,
         # dropdown.open.).
-        self._imageResultsButton.bind(on_release=self._dropdown.open)
+        # self._imageResultsButton.bind(on_release=self._dropdown.open)
 
         # one last thing, listen for the selection in the dropdown list and
         # assign the data to the button text.
-        self._dropdown.bind(on_select=lambda instance, x: setattr(self._imageResultsButton, 'text', x))
+        # self._dropdown.bind(on_select=lambda instance, x: setattr(self._imageResultsButton, 'text', x))
 
 
 
-        # self._camera = CameraD3(resolution=(1280,720),
+        # self._camera = Camera2131(resolution=(1280,720),
         #                         play=True, fourcc="GREY")
 
-        # self._camera = CameraD3(resolution=(3872, 2764),
+        # self._camera = Camera2131(resolution=(3872, 2764),
         #                       play=True, fourcc="Y16 ")
 
-        # self._camera = CameraD3(resolution=(1920,1080),
+        # self._camera = Camera2131(resolution=(1920,1080),
         #                        play=True, fourcc="GREY")
 
-        # self._camera = CameraD3(resolution=(2560, 1920),
+        # self._camera = Camera2131(resolution=(2560, 1920),
         #                        play=True, fourcc="GREY")
 
         self._histogram = Histogram(
             size_hint=(0.2,0.3), pos_hint={'pos':(0.8,0.6)})
 
-        self._demo.bind(on_press=self._show_demo_results)
+        # self._demo.bind(on_press=self._show_demo_results)
         self._toggle.bind(on_press=self._led_toggle)
         self._snap.bind(on_press=self._request_capture)
         self._snapref.bind(on_press=self._request_ref_capture)
@@ -397,10 +400,10 @@ class TestCamera(App):
 
         mat = Matrix().scale(10,10,10).translate(0,-150,0)
         self._scatter.apply_transform(mat)
-        layout.add_widget(self._imageResultsButton)
+        # layout.add_widget(self._imageResultsButton)
         layout.add_widget(self._uploading)
         layout.add_widget(self._uploadingAmt)
-        layout.add_widget(self._demo)
+        # layout.add_widget(self._demo)
         layout.add_widget(self._histogram)
         layout.add_widget(self._snap)
         layout.add_widget(self._snapref)
@@ -414,12 +417,13 @@ class TestCamera(App):
 
         layout.add_widget(self._exposure)
         layout.add_widget(self._fps)
+        layout.add_widget(self._temp)
         Clock.schedule_interval(self._update_fps, 2)
         layout.add_widget(self._toggle)
         #layout.add_widget(update)
 
         self._is_updating = False
-        self.updateImages()
+        # self.updateImages()
         return layout
 
 TestCamera().run()

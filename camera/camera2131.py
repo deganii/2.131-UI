@@ -1,10 +1,10 @@
 from kivy.uix.image import Image
-from core_camera import CoreCamera as CoreCamera
+from core_camera2131 import CoreCamera2131
 from kivy.properties import NumericProperty, ListProperty, \
     BooleanProperty, StringProperty
 
 
-class Camera(Image):
+class Camera2131(Image):
     '''Camera class. See module documentation for more information.
     '''
 
@@ -47,7 +47,7 @@ class Camera(Image):
 
     def __init__(self, **kwargs):
         self._camera = None
-        super(Camera, self).__init__(**kwargs)
+        super(Camera2131, self).__init__(**kwargs)
         if self.index == -1:
             self.index = 0
         on_index = self._on_index
@@ -70,10 +70,10 @@ class Camera(Image):
             return
         if self.resolution[0] < 0 or self.resolution[1] < 0:
             return
-        self._camera = CoreCamera(index=self.index,
-                                  resolution=self.resolution, stopped=True,
-                                  capture_resolution = self.capture_resolution,
-                                    capture_fourcc = self.capture_fourcc)
+        self._camera = CoreCamera2131(index=self.index,
+                                      resolution=self.resolution, stopped=True,
+                                      capture_resolution = self.capture_resolution,
+                                      capture_fourcc = self.capture_fourcc)
         self._camera.bind(on_load=self._camera_loaded)
         self._camera.bind(on_texture=self.on_tex)
 
@@ -85,6 +85,9 @@ class Camera(Image):
 
     def get_fps(self):
         return self._camera.get_fps()
+
+    def get_temp(self):
+        return self._camera.get_temp()
 
     def set_exposure(self, val):
         return self._camera.set_exposure(val)
