@@ -18,8 +18,14 @@ import os
 import dropbox
 from io import BytesIO
 
+import os
+from subprocess import Popen, PIPE
+import fcntl
+import subprocess
 
 import numpy as np
+
+
 
 class CoreCamera2131(CameraBase):
     """Implementation of ImagingSource Camera
@@ -47,6 +53,7 @@ class CoreCamera2131(CameraBase):
         self._total_upload_size = 0
         self._object_detection = False
         self._fps = 0
+        self._temp = ""
         if self._mode is None:
             self._mode = self._get_mode_from_fourcc(self._fourcc)
 
@@ -170,7 +177,30 @@ class CoreCamera2131(CameraBase):
             Logger.exception('Exception! %s', e)
             Clock.schedule_once(self.stop)
 
+    def usb_reset(self):
+        try:
+            driver = '"The Imaging Source Europe GmbH"'
+            lsusb_out = Popen("lsusb | grep -i %s" % driver, shell=True, bufsize=64,
+                              stdin=PIPE, stdout=PIPE, close_fds=True).stdout.read().strip().split()
+            bus = lsusb_out[1]
+            device = lsusb_out[3][:-1]
+            op = "/dev/bus/usb/%s/%s" % (bus, device)
+
+            r = subprocess.call(["/usr/bin/sudo", "/home/pi/usbreset/usbreset.o", op])
+            #sleep(2)
+            # USBDEVFS_RESET = ord('U') << (4 * 2) | 20  # 21780 -- Linux IOCTL Flag Definition
+            # f = open(op, 'w', os.O_WRONLY)
+            # fcntl.ioctl(f, USBDEVFS_RESET, 0)
+            # f.close()
+            # sleep(2)
+        except Exception, msg:
+            print "failed to reset device:", msg
+            e2 = sys.exc_info()[0]
+            Logger.info("Exception while trying to reset usb... %s", e2)
+
+
     def _v4l_init_video(self):
+        self.usb_reset()
 
         device = self._device
         (res_x, res_y) = self.resolution

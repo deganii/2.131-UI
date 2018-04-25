@@ -320,6 +320,11 @@ class TestCamera(App):
         self._temp = Label(text='Temp: 0', size_hint=(0.1,0.1),
                           pos_hint={'pos':(0.6,0.9)})
 
+        import socket
+        dev_ip = socket.gethostbyname(socket.gethostname())
+        self._ip = Label(text='IP: %s'%dev_ip, size_hint=(0.1,0.1),
+                          pos_hint={'pos':(0.3,0.9)})
+
         self._uploading = Label(text='Uploading...', size_hint=(0.2,0.1),
                           pos_hint={'pos':(-1,-1)}, color=[0,0,1,0])
         self._uploadingAmt = Label(text='', size_hint=(0.2,0.1),
@@ -338,13 +343,27 @@ class TestCamera(App):
         self._upload_progress = ProgressBar(max=100, size_hint=(0.5,0.1),
                           pos_hint={'pos':(-1,-1)})
 
-        self._camera = Camera2131(resolution=(640, 480),
+        self._camera = Camera2131(resolution=(1280,960),
                                   fourcc="GREY",
                                   capture_resolution=(3872, 2764),
                                   capture_fourcc="Y16 ",
                                   size_hint=(1,1),
                                   pos_hint={'pos':(0,0)},
                                   play=True, )
+
+
+        # self._camera = Camera2131(resolution=(1280,720),
+        #                         play=True, fourcc="GREY")
+
+        # self._camera = Camera2131(resolution=(3872, 2764),
+        #                       play=True, fourcc="Y16 ")
+
+        # self._camera = Camera2131(resolution=(1920,1080),
+        #                        play=True, fourcc="GREY")
+
+        # self._camera = Camera2131(resolution=(2560, 1920),
+        #                        play=True, fourcc="GREY")
+
 
         self._dropdown = DropDown()
 
@@ -362,18 +381,6 @@ class TestCamera(App):
         # self._dropdown.bind(on_select=lambda instance, x: setattr(self._imageResultsButton, 'text', x))
 
 
-
-        # self._camera = Camera2131(resolution=(1280,720),
-        #                         play=True, fourcc="GREY")
-
-        # self._camera = Camera2131(resolution=(3872, 2764),
-        #                       play=True, fourcc="Y16 ")
-
-        # self._camera = Camera2131(resolution=(1920,1080),
-        #                        play=True, fourcc="GREY")
-
-        # self._camera = Camera2131(resolution=(2560, 1920),
-        #                        play=True, fourcc="GREY")
 
         self._histogram = Histogram(
             size_hint=(0.2,0.3), pos_hint={'pos':(0.8,0.6)})
@@ -417,7 +424,7 @@ class TestCamera(App):
 
         layout.add_widget(self._exposure)
         layout.add_widget(self._fps)
-        layout.add_widget(self._temp)
+        layout.add_widget(self._temp
         Clock.schedule_interval(self._update_fps, 2)
         layout.add_widget(self._toggle)
         #layout.add_widget(update)
