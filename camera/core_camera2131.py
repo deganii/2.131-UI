@@ -320,7 +320,8 @@ class CoreCamera2131(CameraBase):
 
     def _read_temp(self):
         temp = os.popen("vcgencmd measure_temp").readline()
-        return (temp.replace("temp=", ""))
+        temp = temp.replace("temp=", "").strip()
+        return temp
 
     def _fps_tick(self):
         newtime = time.time()
