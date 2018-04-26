@@ -284,6 +284,17 @@ class TestCamera(App):
         GPIO.output(LED_Pin, self._led_state)
 
 
+    def get_ip_address(self):
+        try:
+            import socket
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            addr =  s.getsockname()[0]
+            s.close()
+            return addr
+        except:
+            return "Error"
+
     def build(self):
         self.init_GPIO()
 
@@ -320,8 +331,8 @@ class TestCamera(App):
         self._temp = Label(text='Temp: 0', size_hint=(0.1,0.1),
                           pos_hint={'pos':(0.6,0.9)})
 
-        import socket
-        dev_ip = socket.gethostbyname(socket.gethostname())
+
+        dev_ip = self.get_ip_address()
         self._ip = Label(text='IP: %s'%dev_ip, size_hint=(0.1,0.1),
                           pos_hint={'pos':(0.3,0.9)})
 
@@ -424,7 +435,8 @@ class TestCamera(App):
 
         layout.add_widget(self._exposure)
         layout.add_widget(self._fps)
-        layout.add_widget(self._temp
+        layout.add_widget(self._temp)
+        layout.add_widget(self._ip)
         Clock.schedule_interval(self._update_fps, 2)
         layout.add_widget(self._toggle)
         #layout.add_widget(update)
