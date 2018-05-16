@@ -347,21 +347,28 @@ class TestCamera(App):
         self._centroid = Label(text='C:0', size_hint=(0.1,0.1),
                           pos_hint={'pos':(0.79,0.83)}, color=[1,0,0,1])
 
-        self._exposure_slider = Slider(min=0, max=2500, value=333,
+        self._exposure_slider = Slider(min=0, max=2500, value=1358,
                           size_hint=(0.5,0.1),
                           pos_hint={'pos':(0.2,0)}  )
 
         self._upload_progress = ProgressBar(max=100, size_hint=(0.5,0.1),
                           pos_hint={'pos':(-1,-1)})
 
-        self._camera = Camera2131(resolution=(1280,960),
+        # self._camera = Camera2131(resolution=(1280,960),
+        #                           fourcc="GREY",
+        #                           capture_resolution=(3872, 2764),
+        #                           capture_fourcc="Y16 ",
+        #                           size_hint=(1,1),
+        #                           pos_hint={'pos':(0,0)},
+        #                           play=True, )
+
+        self._camera = Camera2131(resolution=(640, 480),
                                   fourcc="GREY",
-                                  capture_resolution=(3872, 2764),
-                                  capture_fourcc="Y16 ",
+                                  capture_resolution=(640, 480),
+                                  capture_fourcc="GREY",
                                   size_hint=(1,1),
                                   pos_hint={'pos':(0,0)},
                                   play=True, )
-
 
         # self._camera = Camera2131(resolution=(1280,720),
         #                         play=True, fourcc="GREY")

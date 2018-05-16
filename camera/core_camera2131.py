@@ -13,6 +13,8 @@ import datetime
 import numpy as np
 import v4l2capture
 
+
+
 # dropbox related (todo: move into separate class)
 import os
 import dropbox
@@ -160,9 +162,9 @@ class CoreCamera2131(CameraBase):
             ts = time.time()
             st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d-%Hh-%Mm-%Ss')
             if is_ref:
-                file = '/home/pi/d3-captures/reference-%s.tiff' % st
+                file = '/home/pi/2.131-captures/reference-%s.tiff' % st
             else:
-                file = '/home/pi/d3-captures/capture-%s.tiff' % st
+                file = '/home/pi/2.131-captures/capture-%s.tiff' % st
             image.save(file, format='TIFF')
 
             #self._user_buffer = image
@@ -171,11 +173,165 @@ class CoreCamera2131(CameraBase):
 
             # start the dropbox upload
             # todo: move this out of the camera code!
-            self.upload(file)
+            # self.upload(file)
         except:
             e = sys.exc_info()[0]
             Logger.exception('Exception! %s', e)
             Clock.schedule_once(self.stop)
+
+    def perform_mser(self, frame):
+        import cv2
+        import numpy as np
+        import cv2 as cv
+        is_old_cv = True
+
+        def intersection(a, b):
+            x = max(a[0], b[0])
+            y = max(a[1], b[1])
+            w = min(a[0] + a[2], b[0] + b[2]) - x
+            h = min(a[1] + a[3], b[1] + b[3]) - y
+            if w < 0 or h < 0: return 0
+            return w * h
+
+        if is_old_cv:
+            mser = cv.MSER()
+        else:
+            mser = cv2.MSER_create(
+                _delta=2,
+                _min_area=720,
+                _max_area=9000,
+                _max_variation=15.0,
+                _min_diversity=10.0,
+                _max_evolution=10,
+                _area_threshold=12.0,
+                _min_margin=2.9,
+                _edge_blur_size=10)
+        Logger.info("1st MSER (Polystyrene)")
+        frame = np.array(frame)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        vis = cv2.cvtColor(np.asarray(frame.copy()), cv2.COLOR_RGB2BGR)
+        if is_old_cv:
+            regions = mser.detect(gray, None)
+            Logger.info("1st MSER (Polystyrene). Regions: {0}".format(len(regions)))
+        else:
+            regions, q = mser.detectRegions(gray)
+
+        # polylines
+        hulls = [cv.convexHull(p.reshape(-1, 1, 2)) for p in regions]
+        # cv.polylines(vis, hulls, 1, (0, 255, 0))
+
+        # boundingboxes
+        mask = np.zeros((frame.shape[0], frame.shape[1], 1), dtype=np.uint8)
+        mask = cv2.dilate(mask, np.ones((150, 150), np.uint8))
+        Logger.info("Dilate complete")
+        for contour in hulls:
+            cv2.drawContours(mask, [contour], -1, (255, 255, 255), -1)
+
+        bboxes = []
+        for i, contour in enumerate(hulls):
+            x, y, w, h = cv2.boundingRect(contour)
+            bboxes.append(cv2.boundingRect(contour))
+            # cv2.rectangle(vis, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        Logger.info("1st MSER: Removing intersections: {0} boxes".format(len(bboxes)))
+        for i in range(len(bboxes)):
+            j = i + 1
+            while j < len(bboxes):
+                if intersection(bboxes[i], bboxes[j]) > 0:
+                    break
+                else:
+                    j = j + 1
+            if j == len(bboxes):
+                x, y, w, h = bboxes[i]
+                cv2.rectangle(vis, (x, y), (x + w, y + h), (0, 0, 255), 2)
+        Logger.info("1st MSER Complete, bboxes={0}".format(len(bboxes)))
+        return vis, bboxes
+
+    def mser_part2(self, frame, vis, bboxes1):
+        import cv2
+        is_old_cv = True
+        Logger.info("Second mser (silica)")
+        def intersection(a, b):
+            x = max(a[0], b[0])
+            y = max(a[1], b[1])
+            w = min(a[0] + a[2], b[0] + b[2]) - x
+            h = min(a[1] + a[3], b[1] + b[3]) - y
+            if w < 0 or h < 0: return 0
+            return w * h
+
+        if is_old_cv:
+            mser = cv2.MSER()
+            # mser.set_
+        else:
+            mser = cv2.MSER_create(  # cv.MSER_create()
+                _delta=4,
+                _min_area=500,
+                _max_area=2000,
+                _max_variation=15.0,
+                _min_diversity=10.0,
+                _max_evolution=10,
+                _area_threshold=12.0,
+                _min_margin=2.9,
+                _edge_blur_size=10)
+
+        frame = np.array(frame)
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        if is_old_cv:
+            regions = mser.detect(gray, None)
+        else:
+            regions, q = mser.detectRegions(gray)
+
+        # polylines
+        hulls = [cv2.convexHull(p.reshape(-1, 1, 2)) for p in regions]
+        # cv.polylines(vis, hulls, 1, (0, 255, 0))
+
+        # boundingboxes
+        mask = np.zeros((frame.shape[0], frame.shape[1], 1), dtype=np.uint8)
+        mask = cv2.dilate(mask, np.ones((150, 150), np.uint8))
+
+        for contour in hulls:
+            cv2.drawContours(mask, [contour], -1, (255, 255, 255), -1)
+
+        bboxes = []
+        for i, contour in enumerate(hulls):
+            x, y, w, h = cv2.boundingRect(contour)
+            bboxes.append(cv2.boundingRect(contour))
+            # cv2.rectangle(vis, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+
+        bboxesAll = bboxes + bboxes1
+        for i in range(len(bboxes)):
+            j = i + 1
+            while j < len(bboxesAll):
+                if intersection(bboxes[i], bboxesAll[j]) > 0:
+                    break
+                else:
+                    j = j + 1
+            if j == len(bboxesAll):
+                x, y, w, h = bboxes[i]
+                cv2.rectangle(vis, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+        Logger.info("2nd MSER Complete, bboxes={0}".format(len(bboxesAll)))
+        return Image.fromarray(cv2.cvtColor(vis, cv2.COLOR_BGR2RGB))
+
+    def perform_hough(self, frame, image):
+        # overlay related (todo: move into separate class)
+        import cv2
+        # import cv2.cv as cv
+
+        # convert from PIL RGB colorspace to opencv's BGR
+        color_imcv = cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR)
+        gray_imcv = np.asarray(self._user_buffer)
+        circles = cv2.HoughCircles(gray_imcv, cv2.cv.CV_HOUGH_GRADIENT, 1, 2, np.array([]), 100, 10, 0, 10)
+        if circles is not None:
+            a, b, c = circles.shape
+            for i in range(b):
+                cv2.circle(color_imcv, (circles[0][i][0], circles[0][i][1]), circles[0][i][2], (0, 0, 255), 3,
+                           cv2.CV_AA)
+                cv2.circle(color_imcv, (circles[0][i][0], circles[0][i][1]), 2, (0, 255, 0), 3,
+                           cv2.CV_AA)  # draw center of circle
+            # convert back from opencv's BGR colorspace to PIL RGB
+            image = Image.fromarray(cv2.cvtColor(color_imcv, cv2.COLOR_BGR2RGB))
 
     def usb_reset(self):
         try:
@@ -187,7 +343,7 @@ class CoreCamera2131(CameraBase):
             op = "/dev/bus/usb/%s/%s" % (bus, device)
 
             r = subprocess.call(["/usr/bin/sudo", "/home/pi/usbreset/usbreset.o", op])
-            #sleep(2)
+            sleep(2)
             # USBDEVFS_RESET = ord('U') << (4 * 2) | 20  # 21780 -- Linux IOCTL Flag Definition
             # f = open(op, 'w', os.O_WRONLY)
             # fcntl.ioctl(f, USBDEVFS_RESET, 0)
@@ -201,7 +357,7 @@ class CoreCamera2131(CameraBase):
 
     def _v4l_init_video(self):
         self.usb_reset()
-
+        sleep(1.0)
         device = self._device
         (res_x, res_y) = self.resolution
         fourcc = self._fourcc
@@ -238,10 +394,14 @@ class CoreCamera2131(CameraBase):
 
         while not self.stopped:
             try:
-
-                # Logger.debug("Obtaining a frame...")
-                select.select((video,), (), ())
-                image_data = video.read_and_queue()
+                try:
+                    # Logger.debug("Obtaining a frame...")
+                    select.select((video,), (), ())
+                    image_data = video.read_and_queue()
+                except:
+                    if not self._object_detection:
+                        # don't rethrow if we're doing an anlysis...
+                        raise
                 # Logger.debug("Obtained a frame of size %d", len(image_data))
                 image = Image.frombytes(self._mode, self._texture_size, image_data)
                 self._user_buffer = image
@@ -258,21 +418,14 @@ class CoreCamera2131(CameraBase):
 
                 # draw some hough circles on the RGB buffer as an overlay
                 if self._object_detection:
-                    # overlay related (todo: move into separate class)
-                    import cv2
-                    #import cv2.cv as cv
-
-                    # convert from PIL RGB colorspace to opencv's BGR
-                    color_imcv = cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR)
-                    gray_imcv = np.asarray(self._user_buffer)
-                    circles = cv2.HoughCircles(gray_imcv, cv2.CV_HOUGH_GRADIENT, 1, 2, np.array([]), 100, 10,0,10)
-                    if circles is not None:
-                        a, b, c = circles.shape
-                        for i in range(b):
-                                cv2.circle(color_imcv, (circles[0][i][0], circles[0][i][1]), circles[0][i][2], (0, 0, 255), 3, cv2.CV_AA)
-                                cv2.circle(color_imcv, (circles[0][i][0], circles[0][i][1]), 2, (0, 255, 0), 3, cv2.CV_AA)  # draw center of circle
-                        # convert back from opencv's BGR colorspace to PIL RGB
-                        image = Image.fromarray(cv2.cvtColor(color_imcv,cv2.COLOR_BGR2RGB))
+                    try:
+                        oldImg = image
+                        vis,bboxes = self.perform_mser(image)
+                        image = self.mser_part2(image,vis,bboxes)
+                    except:
+                        image = oldImg
+                        e = sys.exc_info()[0]
+                        Logger.exception('Analysis Exception! %s', e)
 
                 # convert to RGB in order to display on-screen
                 self._buffer = image.tobytes("raw", "RGB")
@@ -288,12 +441,17 @@ class CoreCamera2131(CameraBase):
 
                 if(self.capture_requested or self.ref_requested):
                     # need to switch to high res mode
-                    video.close()
-                    self._do_capture(self.ref_requested)
+                    # video.close()
+                    # self._do_capture(self.ref_requested)
+                    ts = time.time()
+                    st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d-%Hh-%Mm-%Ss')
+                    file = '/home/pi/2.131-captures/capture-%s.tiff' % st
+                    image.save(file, format='PNG')
+
                     self.capture_requested = False
                     self.ref_requested = False
                     # reinitialize
-                    video = self._v4l_init_video()
+                    # video = self._v4l_init_video()
             except:
                 e = sys.exc_info()[0]
                 Logger.exception('Exception! %s', e)
